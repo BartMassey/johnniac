@@ -33,6 +33,8 @@ def tens_complement(ds):
 def parse_word(s):
     if s[0] == '-':
         s = tens_complement(s[1:])
+    if len(s) > 5 or (len(s) > 0 and s[0] == '-'):
+        raise OverflowError()
     return int(s)
 
 # Load a "decimal dump" from a file.
@@ -48,7 +50,7 @@ def load(filename):
     addr = 0
     line = 1
     for w in f:
-        uw = comment.sub(w, '')
+        uw = comment.sub('', w)
         ws = uw.split()
         if len(ws) == 0:
             continue
@@ -69,10 +71,98 @@ def load(filename):
         except:
                 error("line %d: malformed data word" % (line,))
                 return
+        print("+ %05d %05d" % (addr, data))
         temp_memory[addr] = data
         addr += 1
         line += 1
     memory = temp_memory
+
+# Actually run the Johnniac emulator.
+def go(addr=0):
+    acc = 0
+    pc = addr
+    while True:
+        if pc < 0 or pc >= len(memory):
+            error("%d: illegal pc" % (pc,))
+            return
+        insn = memory[pc]
+        if insn < 0 or insn >= 11000:
+            error("%d: %d: illegal instruction" % (pc, insn))
+            return
+        op = insn // 1000
+        operand = insn % 1000
+        print("+ %05d: %02d %03d" % (pc, op, operand))
+        if   op ==  0:   # HALT
+            return
+        elif op ==  1:   # LOAD
+            if operand >= len(memory):
+                error("%d: LOAD %d: illegal address" % (pc, operand))
+                return
+            acc = memory[operand]
+        elif op == 2:    # STORE
+            if operand >= len(memory):
+                error("%d: STORE %d: illegal address" % (pc, operand))
+                return
+            memory[operand] = acc
+        elif op == 3:    # ADD
+            if operand >= len(memory):
+                error("%d: ADD %d: illegal address" % (pc, operand))
+                return
+            acc += memory[operand]
+            acc %= 100000
+        elif op == 4:    # MULTIPLY
+            if operand >= len(memory):
+                error("%d: MULTIPLY %d: illegal address" % (pc, operand))
+                return
+            acc *= memory[operand]
+            acc %= 100000
+        elif op == 5:    # DIVIDE
+            if operand >= len(memory):
+                error("%d: DIVIDE %d: illegal address" % (pc, operand))
+                return
+            if acc == 0:
+                error("%d: DIVIDE by 0" % (pc,))
+                return
+            acc = memory[operand] / acc
+        elif op == 6:    # SUBTRACT
+            if operand >= len(memory):
+                error("%d: DIVIDE %d: illegal address" % (pc, operand))
+                return
+            acc -= memory[operand]
+            if acc < 0:
+                acc += 100000
+        elif op == 7:    # TEST
+            if operand >= len(memory):
+                error("%d: TEST %d: illegal destination" % (pc, operand))
+                return
+            if acc == 0:
+                pc = operand
+        elif op == 8:    # GET
+            if operand >= len(memory):
+                error("%d: GET %d: illegal address" % (pc, operand))
+                return
+            while True:
+                got = input("> ")
+                try:
+                    num = parse_word(got)
+                except:
+                    error("%s: bad word", (got,))
+                    continue
+                break
+            memory[operand] = got
+        elif op == 9:     # PUT
+            if operand >= len(memory):
+                error("%d: PUT %d: illegal address" % (pc, operand))
+                return
+            outword = memory[operand]
+            print(format(outword, "05d"))
+        elif op == 10:    # NOOP
+            pass
+        else:
+            error("%d: illegal instruction" % (pc,))
+            return
+        pc += 1
+
 
 # True when main loop is supposed to keep running.
 running = True
@@ -80,22 +170,35 @@ running = True
 # Command: exit the main loop.
 def command_exit(args):
     global running
-    if (args != []):
+    if args != []:
         error("usage: exit")
         return
     running = False
 
 # Command: load a program.
 def command_load(args):
-    if (len(args) != 1):
+    if len(args) != 1:
         error("usage: load <filename>")
         return
     load(args[0])
+
+# Command: run a program.
+def command_go(args):
+    if len(args) > 1:
+        error("usage: go [<address>]")
+        return
+    if len(args) == 1:
+        addr = parse_word(args[0])
+    else:
+        addr = 0
+    go(addr)
 
 commands = { \
     "exit" : command_exit, \
     "l" : command_load, \
     "load" : command_load, \
+    "g" : command_go, \
+    "go" : command_go, \
 }
 
 # Interactive command loop.
