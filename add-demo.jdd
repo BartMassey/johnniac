@@ -1,0 +1,15 @@
+# Copyright (c) 2014 Warren Harrison
+# Johnniac Decimal Dump
+# Add Demo
+
+# Program
+     01010    # Load ACC with first number
+     03011    # Add second number to ACC
+     02012    # Store result
+     09012    # Display result
+     00000    # Halt
+
+# Data
+0009 00002    # "extra" word
+     00100    # first number
+     00250    # second number
