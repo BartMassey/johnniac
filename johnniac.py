@@ -95,7 +95,7 @@ def command_load(args):
 commands = { \
     "exit" : command_exit, \
     "l" : command_load, \
-    "load" : commmand_load, \
+    "load" : command_load, \
 }
 
 # Interactive command loop.
