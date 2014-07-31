@@ -94,17 +94,20 @@ class ExecException(Exception):
     def __init__(self, msg):
         self.value = msg
 
+# Check whether the given operand is a valid address.
+def check_address(operand, insn_name):
+    global pc
+    if operand < 0 or operand >= len(memory):
+        raise ExecException("%d: %s %d: illegal address" % \
+                            (pc, insn_name, operand))
+
 # Actually run the Johnniac emulator.
 # Raises ExecException if something goes wrong.
-def go(addr=0):
+def go(addr=None):
     global acc, pc
 
-    def check_address(operand, insn_name):
-        if operand >= len(memory):
-            raise ExecException("%d: %s %d: illegal operand address" % \
-                                (pc, insn_name, operand))
-
-    pc = addr
+    if addr != None:
+        pc = addr
     while True:
         if pc < 0 or pc >= len(memory):
             raise ExecException("%d: illegal pc" % (pc,))
@@ -207,12 +210,84 @@ def command_go(args):
     except ExecException as e:
         error(e.value)
 
+# Command: continue execution at current PC
+def command_continue(args):
+    global pc
+    if len(args) != 0:
+        error("usage: continue")
+        return
+    go(pc)
+# Command: print machine state.
+def command_print(args):
+    global pc, acc
+    if len(args) > 1:
+        error("usage: print [<thing>]")
+        return
+    if len(args) == 1:
+        if args[0] == "%acc":
+            print("%05d" % (acc,))
+            return
+        if args[0] == "%pc":
+            print("%05d" % (pc,))
+            return
+        try:
+            addr = parse_word(args[0])
+        except:
+            error("%s: not a source address" % (args[0]))
+            return
+        try:
+            check_address(addr, "source")
+        except ExecException:
+            error("%03d: invalid source address" % (addr,))
+            return
+        print("%03d: %05d" % (addr, memory[addr]))
+        return
+    print("%%pc=%05d" % (pc,))
+    print("%%acc=%05d" % (acc,))
+    for a in range(len(memory)):
+        print("%03d: %05d" % (a, memory[a]))
+
+def command_set(args):
+    global pc, acc
+    if len(args) != 2:
+        error("usage: set <target> <value>")
+        return
+    try:
+        value = parse_word(args[1])
+    except:
+        error("%s: bad value" % (args[1],))
+        return
+    if args[0] == "%acc":
+        acc = value
+        return
+    if args[0] == "%pc":
+        pc = value
+        return
+    try:
+        addr = parse_word(args[0])
+    except:
+        error("%s: not a target address" % (args[0]))
+        return
+    try:
+        check_address(addr, "target")
+    except ExecException:
+        error("%03d: invalid target address" % (addr,))
+        return
+    memory[addr] = value
+
 commands = { \
     "exit" : command_exit, \
     "l" : command_load, \
     "load" : command_load, \
     "g" : command_go, \
     "go" : command_go, \
+    "c" : command_continue, \
+    "cont" : command_continue, \
+    "continue" : command_continue, \
+    "p" : command_print, \
+    "print" : command_print, \
+    "s" : command_set, \
+    "set" : command_set, \
 }
 
 # Interactive command loop.
