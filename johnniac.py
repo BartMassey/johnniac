@@ -17,8 +17,10 @@ def error(*args, **kwargs):
     kwargs["file"] = stderr
     print(*args, **kwargs)
 
-# Actual storage.
+# Machine state.
 memory = [0]*memory_size
+pc = 0
+acc = 0
 
 # Regex to match comments in decimal dumps.
 comment = re.compile("#.*")
@@ -83,7 +85,7 @@ def load(filename):
 
 # Actually run the Johnniac emulator.
 def go(addr=0):
-    acc = 0
+    global acc, pc
     pc = addr
     while True:
         if pc < 0 or pc >= len(memory):
